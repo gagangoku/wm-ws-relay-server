@@ -1,0 +1,66 @@
+<html>
+
+<head>
+    <script>
+        function closeWs(ws) {
+            try {
+                ws.close();
+            } catch (e) {
+            }
+        }
+
+        var sockets = {};
+        function reconnect(url, name, otherName, onMsgFn) {
+            let ws = new WebSocket(url);
+            ws.onopen = function () {
+                console.log(`${name} onopen`);
+            };
+            ws.onerror = function (e) {
+                console.error(`${name} onerror: `, e);
+                closeWs(ws);
+                setTimeout(() => reconnect(url, name, otherName, onMsgFn), 10);
+            };
+            ws.onclose = function (e) {
+                console.log(`${name} onclose: `, e);
+                setTimeout(() => reconnect(url, name, otherName, onMsgFn), 10);
+            };
+            ws.onmessage = function (e) {
+                console.log(`${name} onmessage: `, e.data);
+                onMsgFn(e.data);
+            };
+            sockets[name] = ws;
+        }
+        window._sockets = sockets;
+
+        function testSetup_Mini() {
+            reconnect("ws://localhost:8080/registerUid?uid=__uid__", "ws1", "", (data) => {});
+            reconnect("ws://localhost:8080/relayExistingUid?uid=__uid__", "ws2", "", (data) => {});
+        }
+        function testSetup_3ws() {
+            reconnect("ws://localhost:8080/registerUid?uid=__uid__", "ws1", "", (data) => {
+                sockets["ws2"].send(data);
+            });
+            reconnect("wss://web.whatsapp.com/ws/chat", "ws2", "", (data) => {
+                sockets["ws1"].send(data);
+            });
+            reconnect("ws://localhost:8080/relayExistingUid?uid=__uid__", "ws3", "", (data) => { });
+        }
+        function realSetup() {
+            reconnect("ws://localhost:8080/registerUid?uid=__uid__", "ws1", "", (data) => {
+                sockets["ws2"].send(data);
+            });
+            reconnect("wss://web.whatsapp.com/ws/chat", "ws2", "", (data) => {
+                sockets["ws1"].send(data);
+            });
+        }
+
+        // testSetup_Mini();  // works
+        // testSetup_3ws();   // wasnt able to figure out the initial payload to send to Whatsapp
+        realSetup();          // finally worked
+    </script>
+</head>
+
+<body>
+</body>
+
+</html>

@@ -10,6 +10,8 @@ import (
 var hostPortFlag = flag.String("hostPort", "", "the host port to listen to")
 
 func main() {
+	flag.Parse()
+
 	log.Println("server starting: ", *hostPortFlag)
 	server.ServerMain(*hostPortFlag)
 }

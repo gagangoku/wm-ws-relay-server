@@ -13,6 +13,19 @@ import (
 	"whatlist.io/whatsapp-proxy/util"
 )
 
+func Test_Test(t *testing.T) {
+	t.Skip()
+	hostPortFlag := "localhost:8080"
+	ws1, _ := client.SimpleClient(fmt.Sprintf("ws://%s/echo", hostPortFlag), func(messageType int, data []byte) {
+		fmt.Println("recv: ", string(data))
+	})
+	ws1.WriteMessage(websocket.TextMessage, []byte("test:hi"))
+
+	time.Sleep(3 * time.Second)
+	ws1.WriteMessage(websocket.TextMessage, []byte("test:hello"))
+	time.Sleep(1 * time.Second)
+}
+
 func Test_Relay_ExistingUid(t *testing.T) {
 	t.Parallel()
 	port, err := GetFreePort()

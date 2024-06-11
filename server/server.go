@@ -9,12 +9,15 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"strings"
 
 	"whatlist.io/whatsapp-proxy/client"
 
 	"github.com/gorilla/websocket"
 )
 
+var injectorCode string
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
@@ -97,12 +100,6 @@ func registerUid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if ws2, ok := sockets[uid]; ok {
-		log.Printf("websocket already present with uid: %p\n", ws2)
-		serializeBaseRsp(false, fmt.Sprintf("websocket already present with uid: %p", ws2), "")
-		return
-	}
-
 	ws1, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("upgrade error: %s\n", err)
@@ -163,6 +160,25 @@ func pipe(ws1, ws2 *websocket.Conn) error {
 	}
 }
 
+func injectWebsocketRelayInBrowser(w http.ResponseWriter, r *http.Request) {
+	uid := r.URL.Query().Get("uid")
+	if uid == "" {
+		log.Print("uid is must")
+		sendResponse(w, http.StatusBadRequest, serializeBaseRsp(false, fmt.Sprintf("uid is must"), ""))
+		return
+	}
+
+	w.Header().Set("X-Server", "whatlist-websocket-relay")
+	w.Header().Set("Content-Type", "text/html")
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Method", "GET,POST,OPTIONS")
+	w.WriteHeader(http.StatusOK)
+
+	s := strings.ReplaceAll(injectorCode, "__uid__", uid)
+	io.WriteString(w, s)
+}
+
 func home(w http.ResponseWriter, r *http.Request) {
 	sendResponse(w, http.StatusOK, "hi")
 }
@@ -170,11 +186,19 @@ func home(w http.ResponseWriter, r *http.Request) {
 func ServerMain(addr string) {
 	log.Printf("starting server: %s\n", addr)
 
+	_bytes, err := os.ReadFile("injector.html")
+	if err != nil {
+		log.Fatalf("Error: couldnt read injector code: %s", err)
+		return
+	}
+	injectorCode = string(_bytes)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/echo", echo)
 	mux.HandleFunc("/relayNewWebsocket", relayNewWebsocket)
 	mux.HandleFunc("/relayExistingUid", relayExistingUid)
 	mux.HandleFunc("/registerUid", registerUid)
+	mux.HandleFunc("/injectWebsocketRelayInBrowser", injectWebsocketRelayInBrowser)
 	mux.HandleFunc("/", home)
 
 	ctx, cancelCtx := context.WithCancel(context.Background())
@@ -187,7 +211,7 @@ func ServerMain(addr string) {
 		},
 	}
 
-	err := serverOne.ListenAndServe()
+	err = serverOne.ListenAndServe()
 	if errors.Is(err, http.ErrServerClosed) {
 		log.Println("Error: server one closed")
 	} else if err != nil {
@@ -197,7 +221,7 @@ func ServerMain(addr string) {
 }
 
 func sendResponse(w http.ResponseWriter, code int, output string) {
-	w.Header().Set("X-Server", "superlist")
+	w.Header().Set("X-Server", "whatlist-websocket-relay")
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Access-Control-Allow-Headers", "*")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
