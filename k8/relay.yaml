@@ -1,0 +1,71 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: wm-ws-relay-server
+  labels:
+    app: wm-ws-relay-server
+  annotations:
+    keel.sh/policy: all
+    keel.sh/trigger: poll
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wm-ws-relay-server
+  template:
+    metadata:
+      labels:
+        app: wm-ws-relay-server
+    spec:
+      containers:
+        - name: wm-ws-relay-server
+          image: gagangoku1/wm-ws-relay-server-k8:latest
+          ports:
+            - containerPort: 8121
+              protocol: TCP
+          env:
+            - name: EXTERNAL_ENDPOINT
+              value: "wss://relay-ws.whatlist.io"
+            - name: LISTEN_PORT
+              value: "8121"
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: wm-ws-relay-server
+  labels:
+    app: wm-ws-relay-server
+  annotations:
+    cloud.google.com/neg: '{"ingress":true}'
+spec:
+  ports:
+    - protocol: TCP
+      port: 8121
+      targetPort: 8121
+  selector:
+    app: wm-ws-relay-server
+  type: ClusterIP
+
+---
+kind: Ingress
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: wm-ws-relay-server-ingress
+spec:
+  tls:
+    - hosts:
+      - relay-ws.whatlist.io
+      secretName: secret-whatlist-20240305
+  ingressClassName: nginx
+  rules:
+    - host: 'relay-ws.whatlist.io'
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wm-ws-relay-server
+                port:
+                  number: 8121

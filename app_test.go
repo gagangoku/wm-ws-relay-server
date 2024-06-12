@@ -13,17 +13,31 @@ import (
 	"whatlist.io/whatsapp-proxy/util"
 )
 
-func Test_Test(t *testing.T) {
-	t.Skip()
-	hostPortFlag := "localhost:8080"
-	ws1, _ := client.SimpleClient(fmt.Sprintf("ws://%s/echo", hostPortFlag), func(messageType int, data []byte) {
+func Test_Echo(t *testing.T) {
+	t.Parallel()
+	port, err := GetFreePort()
+	if err != nil {
+		t.Fatalf("failed to get free port: %s", err)
+	}
+	externalEndpoint := fmt.Sprintf("ws://localhost:%d", port)
+	go func() {
+		server.ServerMain(fmt.Sprintf("%d", port), externalEndpoint)
+	}()
+
+	msgsRecv := []string{}
+	ws1, _ := client.SimpleClient(fmt.Sprintf("%s/echo", externalEndpoint), func(messageType int, data []byte) {
 		fmt.Println("recv: ", string(data))
+		msgsRecv = append(msgsRecv, string(data))
 	})
 	ws1.WriteMessage(websocket.TextMessage, []byte("test:hi"))
 
 	time.Sleep(3 * time.Second)
 	ws1.WriteMessage(websocket.TextMessage, []byte("test:hello"))
 	time.Sleep(1 * time.Second)
+
+	if len(msgsRecv) != 2 || msgsRecv[0] != "test:hi" || msgsRecv[1] != "test:hello" {
+		t.Fatalf("mismatch")
+	}
 }
 
 func Test_Relay_ExistingUid(t *testing.T) {
@@ -32,17 +46,17 @@ func Test_Relay_ExistingUid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get free port: %s", err)
 	}
-	hostPortFlag := fmt.Sprintf("localhost:%d", port)
+	externalEndpoint := fmt.Sprintf("ws://localhost:%d", port)
 	go func() {
-		server.ServerMain("ws", hostPortFlag)
+		server.ServerMain(fmt.Sprintf("%d", port), externalEndpoint)
 	}()
 
 	w1Recv, w2Recv := 0, 0
-	ws1, _ := client.SimpleClient(fmt.Sprintf("ws://%s/registerUid?uid=123", hostPortFlag), func(messageType int, data []byte) {
+	ws1, _ := client.SimpleClient(fmt.Sprintf("%s/registerUid?uid=123", externalEndpoint), func(messageType int, data []byte) {
 		util.NoopFn(data)
 		w1Recv++
 	})
-	ws2, _ := client.SimpleClient(fmt.Sprintf("ws://%s/relayExistingUid?uid=123", hostPortFlag), func(messageType int, data []byte) {
+	ws2, _ := client.SimpleClient(fmt.Sprintf("%s/relayExistingUid?uid=123", externalEndpoint), func(messageType int, data []byte) {
 		util.NoopFn(data)
 		w2Recv++
 	})
@@ -67,13 +81,13 @@ func Test_Relay_NewWebsocket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get free port: %s", err)
 	}
-	hostPortFlag := fmt.Sprintf("localhost:%d", port)
+	externalEndpoint := fmt.Sprintf("ws://localhost:%d", port)
 	go func() {
-		server.ServerMain("ws", hostPortFlag)
+		server.ServerMain(fmt.Sprintf("%d", port), externalEndpoint)
 	}()
 
 	nRecv := 0
-	u := fmt.Sprintf("ws://%s/relayNewWebsocket?wssUrl=%s", hostPortFlag, url.QueryEscape(fmt.Sprintf("ws://%s/echo", hostPortFlag)))
+	u := fmt.Sprintf("%s/relayNewWebsocket?wssUrl=%s", externalEndpoint, url.QueryEscape(fmt.Sprintf("%s/echo", externalEndpoint)))
 	ws, err := client.SimpleClient(u, func(messageType int, data []byte) {
 		nRecv++
 	})

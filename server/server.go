@@ -176,7 +176,7 @@ func (app *App) injectWebsocketRelayInBrowser(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusOK)
 
 	s := strings.ReplaceAll(injectorCode, "__uid__", uid)
-	s = strings.ReplaceAll(s, "__protocolHostport__", fmt.Sprintf("%s://%s", app.protocol, app.hostPort))
+	s = strings.ReplaceAll(s, "__protocolHostport__", app.externalEndpoint)
 	io.WriteString(w, s)
 }
 
@@ -184,8 +184,8 @@ func home(w http.ResponseWriter, r *http.Request) {
 	sendResponse(w, http.StatusOK, "hi")
 }
 
-func ServerMain(protocol, localAddr string) {
-	log.Printf("starting server: %s\n", localAddr)
+func ServerMain(listenPort, externalEndpoint string) {
+	log.Printf("starting server: %s %s\n", listenPort, externalEndpoint)
 
 	_bytes, err := os.ReadFile("injector.html")
 	if err != nil {
@@ -194,7 +194,7 @@ func ServerMain(protocol, localAddr string) {
 	}
 	injectorCode = string(_bytes)
 
-	app := &App{protocol: protocol, hostPort: localAddr}
+	app := &App{listenPort: listenPort, externalEndpoint: externalEndpoint}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/echo", app.echo)
 	mux.HandleFunc("/relayNewWebsocket", app.relayNewWebsocket)
@@ -205,7 +205,7 @@ func ServerMain(protocol, localAddr string) {
 
 	ctx, cancelCtx := context.WithCancel(context.Background())
 	serverOne := &http.Server{
-		Addr:    localAddr,
+		Addr:    fmt.Sprintf("0.0.0.0:%s", listenPort),
 		Handler: mux,
 		BaseContext: func(l net.Listener) context.Context {
 			ctx = context.WithValue(ctx, ctxKey, l.Addr().String())
@@ -239,8 +239,8 @@ func serializeBaseRsp(success bool, errorMsg, rspStr string) string {
 }
 
 type App struct {
-	protocol string
-	hostPort string
+	listenPort       string
+	externalEndpoint string
 }
 type BaseResponse struct {
 	Success  bool   `json:"success"`

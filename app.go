@@ -7,12 +7,12 @@ import (
 	"whatlist.io/whatsapp-proxy/server"
 )
 
-var hostPortFlag = flag.String("hostPort", "", "the host port to listen to")
-var protocolFlag = flag.String("protocol", "", "the protocol")
+var listenPortFlag = flag.String("listenPort", "", "the port to listen on")
+var externalEndpointFlag = flag.String("externalEndpoint", "", "the external endpoint for relay")
 
 func main() {
 	flag.Parse()
 
-	log.Println("server starting: ", *hostPortFlag)
-	server.ServerMain(*protocolFlag, *hostPortFlag)
+	log.Println("server starting: ", *listenPortFlag, *externalEndpointFlag)
+	server.ServerMain(*listenPortFlag, *externalEndpointFlag)
 }
