@@ -23,7 +23,7 @@ var upgrader = websocket.Upgrader{
 }
 var sockets = map[string]*websocket.Conn{}
 
-func echo(w http.ResponseWriter, r *http.Request) {
+func (app *App) echo(w http.ResponseWriter, r *http.Request) {
 	c, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Print("upgrade:", err)
@@ -46,7 +46,7 @@ func echo(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func relayNewWebsocket(w http.ResponseWriter, r *http.Request) {
+func (app *App) relayNewWebsocket(w http.ResponseWriter, r *http.Request) {
 	ws1, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("upgrade error: %s\n", err)
@@ -92,7 +92,7 @@ func relayNewWebsocket(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func registerUid(w http.ResponseWriter, r *http.Request) {
+func (app *App) registerUid(w http.ResponseWriter, r *http.Request) {
 	uid := r.URL.Query().Get("uid")
 	if uid == "" {
 		log.Print("uid is must")
@@ -111,7 +111,7 @@ func registerUid(w http.ResponseWriter, r *http.Request) {
 	sockets[uid] = ws1
 }
 
-func relayExistingUid(w http.ResponseWriter, r *http.Request) {
+func (app *App) relayExistingUid(w http.ResponseWriter, r *http.Request) {
 	uid := r.URL.Query().Get("uid")
 	if uid == "" {
 		log.Print("uid is must")
@@ -160,7 +160,7 @@ func pipe(ws1, ws2 *websocket.Conn) error {
 	}
 }
 
-func injectWebsocketRelayInBrowser(w http.ResponseWriter, r *http.Request) {
+func (app *App) injectWebsocketRelayInBrowser(w http.ResponseWriter, r *http.Request) {
 	uid := r.URL.Query().Get("uid")
 	if uid == "" {
 		log.Print("uid is must")
@@ -176,6 +176,7 @@ func injectWebsocketRelayInBrowser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	s := strings.ReplaceAll(injectorCode, "__uid__", uid)
+	s = strings.ReplaceAll(s, "__protocolHostport__", fmt.Sprintf("%s://%s", app.protocol, app.hostPort))
 	io.WriteString(w, s)
 }
 
@@ -183,8 +184,8 @@ func home(w http.ResponseWriter, r *http.Request) {
 	sendResponse(w, http.StatusOK, "hi")
 }
 
-func ServerMain(addr string) {
-	log.Printf("starting server: %s\n", addr)
+func ServerMain(protocol, localAddr string) {
+	log.Printf("starting server: %s\n", localAddr)
 
 	_bytes, err := os.ReadFile("injector.html")
 	if err != nil {
@@ -193,17 +194,18 @@ func ServerMain(addr string) {
 	}
 	injectorCode = string(_bytes)
 
+	app := &App{protocol: protocol, hostPort: localAddr}
 	mux := http.NewServeMux()
-	mux.HandleFunc("/echo", echo)
-	mux.HandleFunc("/relayNewWebsocket", relayNewWebsocket)
-	mux.HandleFunc("/relayExistingUid", relayExistingUid)
-	mux.HandleFunc("/registerUid", registerUid)
-	mux.HandleFunc("/injectWebsocketRelayInBrowser", injectWebsocketRelayInBrowser)
+	mux.HandleFunc("/echo", app.echo)
+	mux.HandleFunc("/relayNewWebsocket", app.relayNewWebsocket)
+	mux.HandleFunc("/relayExistingUid", app.relayExistingUid)
+	mux.HandleFunc("/registerUid", app.registerUid)
+	mux.HandleFunc("/injectWebsocketRelayInBrowser", app.injectWebsocketRelayInBrowser)
 	mux.HandleFunc("/", home)
 
 	ctx, cancelCtx := context.WithCancel(context.Background())
 	serverOne := &http.Server{
-		Addr:    addr,
+		Addr:    localAddr,
 		Handler: mux,
 		BaseContext: func(l net.Listener) context.Context {
 			ctx = context.WithValue(ctx, ctxKey, l.Addr().String())
@@ -236,6 +238,10 @@ func serializeBaseRsp(success bool, errorMsg, rspStr string) string {
 	return string(bytes)
 }
 
+type App struct {
+	protocol string
+	hostPort string
+}
 type BaseResponse struct {
 	Success  bool   `json:"success"`
 	ErrorMsg string `json:"errorMsg,omitempty"`

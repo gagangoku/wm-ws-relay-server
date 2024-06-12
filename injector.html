@@ -35,21 +35,21 @@
         const WS2 = "ws2";
         const WS3 = "ws3";
         function testSetup_Mini() {
-            connectWebsocket("ws://localhost:8080/registerUid?uid=__uid__", WS1, "", (data) => {});
-            connectWebsocket("ws://localhost:8080/relayExistingUid?uid=__uid__", WS2, "", (data) => {});
+            connectWebsocket("__protocolHostport__/registerUid?uid=__uid__", WS1, "", (data) => {});
+            connectWebsocket("__protocolHostport__/relayExistingUid?uid=__uid__", WS2, "", (data) => {});
         }
         function testSetup_3ws() {
-            connectWebsocket("ws://localhost:8080/registerUid?uid=__uid__", WS1, "", (data) => {
+            connectWebsocket("__protocolHostport__/registerUid?uid=__uid__", WS1, "", (data) => {
                 sockets[WS2].send(data);
             });
             connectWebsocket("wss://web.whatsapp.com/ws/chat", WS2, "", (data) => {
                 sockets[WS1].send(data);
             });
-            connectWebsocket("ws://localhost:8080/relayExistingUid?uid=__uid__", WS3, "", (data) => { });
+            connectWebsocket("__protocolHostport__/relayExistingUid?uid=__uid__", WS3, "", (data) => { });
         }
         function realSetup() {
             console.log('in realSetup');
-            connectWebsocket("ws://localhost:8080/registerUid?uid=__uid__", WS1, "", (data) => {
+            connectWebsocket("__protocolHostport__/registerUid?uid=__uid__", WS1, "", (data) => {
                 sockets[WS2].send(data);
             });
             connectWebsocket("wss://web.whatsapp.com/ws/chat", WS2, "", (data) => {

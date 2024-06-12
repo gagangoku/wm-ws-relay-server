@@ -34,7 +34,7 @@ func Test_Relay_ExistingUid(t *testing.T) {
 	}
 	hostPortFlag := fmt.Sprintf("localhost:%d", port)
 	go func() {
-		server.ServerMain(hostPortFlag)
+		server.ServerMain("ws", hostPortFlag)
 	}()
 
 	w1Recv, w2Recv := 0, 0
@@ -69,7 +69,7 @@ func Test_Relay_NewWebsocket(t *testing.T) {
 	}
 	hostPortFlag := fmt.Sprintf("localhost:%d", port)
 	go func() {
-		server.ServerMain(hostPortFlag)
+		server.ServerMain("ws", hostPortFlag)
 	}()
 
 	nRecv := 0
