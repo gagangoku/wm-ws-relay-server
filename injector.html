@@ -2,7 +2,7 @@
 
 <head>
     <script>
-        function closeWs(ws) {
+        async function closeWs(ws) {
             try {
                 ws.close();
             } catch (e) {
@@ -10,19 +10,18 @@
         }
 
         var sockets = {};
-        function reconnect(url, name, otherName, onMsgFn) {
+        function connectWebsocket(url, name, otherName, onMsgFn) {
             let ws = new WebSocket(url);
             ws.onopen = function () {
                 console.log(`${name} onopen`);
             };
             ws.onerror = function (e) {
                 console.error(`${name} onerror: `, e);
-                closeWs(ws);
-                setTimeout(() => reconnect(url, name, otherName, onMsgFn), 10);
+                disconnetAll();
             };
             ws.onclose = function (e) {
                 console.log(`${name} onclose: `, e);
-                setTimeout(() => reconnect(url, name, otherName, onMsgFn), 10);
+                disconnetAll();
             };
             ws.onmessage = function (e) {
                 console.log(`${name} onmessage: `, e.data);
@@ -32,26 +31,37 @@
         }
         window._sockets = sockets;
 
+        const WS1 = "ws1";
+        const WS2 = "ws2";
+        const WS3 = "ws3";
         function testSetup_Mini() {
-            reconnect("ws://localhost:8080/registerUid?uid=__uid__", "ws1", "", (data) => {});
-            reconnect("ws://localhost:8080/relayExistingUid?uid=__uid__", "ws2", "", (data) => {});
+            connectWebsocket("ws://localhost:8080/registerUid?uid=__uid__", WS1, "", (data) => {});
+            connectWebsocket("ws://localhost:8080/relayExistingUid?uid=__uid__", WS2, "", (data) => {});
         }
         function testSetup_3ws() {
-            reconnect("ws://localhost:8080/registerUid?uid=__uid__", "ws1", "", (data) => {
-                sockets["ws2"].send(data);
+            connectWebsocket("ws://localhost:8080/registerUid?uid=__uid__", WS1, "", (data) => {
+                sockets[WS2].send(data);
             });
-            reconnect("wss://web.whatsapp.com/ws/chat", "ws2", "", (data) => {
-                sockets["ws1"].send(data);
+            connectWebsocket("wss://web.whatsapp.com/ws/chat", WS2, "", (data) => {
+                sockets[WS1].send(data);
             });
-            reconnect("ws://localhost:8080/relayExistingUid?uid=__uid__", "ws3", "", (data) => { });
+            connectWebsocket("ws://localhost:8080/relayExistingUid?uid=__uid__", WS3, "", (data) => { });
         }
         function realSetup() {
-            reconnect("ws://localhost:8080/registerUid?uid=__uid__", "ws1", "", (data) => {
-                sockets["ws2"].send(data);
+            console.log('in realSetup');
+            connectWebsocket("ws://localhost:8080/registerUid?uid=__uid__", WS1, "", (data) => {
+                sockets[WS2].send(data);
             });
-            reconnect("wss://web.whatsapp.com/ws/chat", "ws2", "", (data) => {
-                sockets["ws1"].send(data);
+            connectWebsocket("wss://web.whatsapp.com/ws/chat", WS2, "", (data) => {
+                sockets[WS1].send(data);
             });
+        }
+
+        async function disconnetAll() {
+            console.log('in disconnetAll');
+            closeWs(sockets[WS1]);
+            closeWs(sockets[WS2]);
+            setTimeout(() => realSetup(), 50);
         }
 
         // testSetup_Mini();  // works
