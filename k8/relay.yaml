@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: wm-ws-relay-server
-          image: gagangoku1/wm-ws-relay-server-k8:latest
+          image: gagangoku1/wm-ws-relay-server:latest
           ports:
             - containerPort: 8121
               protocol: TCP
